@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="custom_components/piyolog/brand/icon.png" alt="ha-piyolog icon" width="128">
+</p>
+
 # ha-piyolog — ぴよログ (PiyoLog) for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
