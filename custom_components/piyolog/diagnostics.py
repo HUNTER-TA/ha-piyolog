@@ -32,6 +32,11 @@ async def async_get_config_entry_diagnostics(
         "coordinator": {
             "feed_url_redacted": coordinator.redacted_url,
             "period": coordinator.period,
+            "retention_days": coordinator.retention_days,
+            "history_since": (
+                data.history_since.isoformat() if data and data.history_since else None
+            ),
+            "feed_record_count": data.feed_record_count if data else None,
             "base_interval_sec": coordinator.base_interval_sec,
             "status": data.status if data else None,
             "last_success": (

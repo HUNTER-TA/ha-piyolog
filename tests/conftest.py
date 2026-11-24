@@ -24,7 +24,28 @@ def _install_homeassistant_stubs() -> None:
     helpers_mod = types.ModuleType("homeassistant.helpers")
     cv_mod = types.ModuleType("homeassistant.helpers.config_validation")
     aiohttp_client_mod = types.ModuleType("homeassistant.helpers.aiohttp_client")
+    storage_mod = types.ModuleType("homeassistant.helpers.storage")
     update_coord_mod = types.ModuleType("homeassistant.helpers.update_coordinator")
+
+    class Store(Generic[T]):
+        def __init__(self, hass: Any, version: int, key: str) -> None:
+            self.hass = hass
+            self.version = version
+            self.key = key
+            self._data: T | None = None
+            self.save_count = 0
+            self.remove_count = 0
+
+        async def async_load(self) -> T | None:
+            return self._data
+
+        async def async_save(self, data: T) -> None:
+            self._data = data
+            self.save_count += 1
+
+        async def async_remove(self) -> None:
+            self._data = None
+            self.remove_count += 1
 
     class HomeAssistant:
         def __init__(self, time_zone: str = "Asia/Tokyo") -> None:
@@ -89,6 +110,7 @@ def _install_homeassistant_stubs() -> None:
     cv_mod.ensure_list = lambda x: x if isinstance(x, list) else [x]
 
     aiohttp_client_mod.async_get_clientsession = lambda hass: None
+    storage_mod.Store = Store
 
     update_coord_mod.DataUpdateCoordinator = DataUpdateCoordinator
     update_coord_mod.UpdateFailed = UpdateFailed
@@ -111,6 +133,7 @@ def _install_homeassistant_stubs() -> None:
     sys.modules["homeassistant.helpers"] = helpers_mod
     sys.modules["homeassistant.helpers.config_validation"] = cv_mod
     sys.modules["homeassistant.helpers.aiohttp_client"] = aiohttp_client_mod
+    sys.modules["homeassistant.helpers.storage"] = storage_mod
     sys.modules["homeassistant.helpers.update_coordinator"] = update_coord_mod
 
 

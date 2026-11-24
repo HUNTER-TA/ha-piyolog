@@ -37,9 +37,10 @@
     "step": {
       "init": {
         "title": "ぴよログ データフィード設定",
-        "description": "{period} フィードの更新間隔を設定します（APIキャッシュ保持時間に基づき最小 {min_interval} 秒）。",
+        "description": "{period} フィードの更新間隔（APIキャッシュ保持時間に基づき最小 {min_interval} 秒）と、Home Assistant 内のローカル履歴保持日数（デフォルト14日・0で無効）を設定します。",
         "data": {
-          "scan_interval": "更新間隔（秒）"
+          "scan_interval": "更新間隔（秒）",
+          "retention_days": "ローカル履歴の保持日数（日）"
         }
       }
     },

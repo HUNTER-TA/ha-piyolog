@@ -720,11 +720,22 @@ def parse_feed_payload(
     *,
     tz: tzinfo = timezone.utc,
     now_utc: datetime | None = None,
+    effective_range_from_utc: datetime | None = None,
 ) -> PiyoLogSnapshot:
-    """Parse and aggregate a validated PiyoLog Data Feed v1 JSON payload."""
+    """Parse and aggregate a validated PiyoLog Data Feed v1 JSON payload.
+
+    When local rolling history is merged into `payload["records"]`, pass
+    `effective_range_from_utc` so daily completeness and coverage flags reflect
+    the continuous history window.
+    """
     schema_version = int(payload["schema_version"])
     generated_at = parse_utc_datetime(payload["generated_at"])
-    range_from = parse_utc_datetime(payload["range"]["from"])
+    api_range_from = parse_utc_datetime(payload["range"]["from"])
+    range_from = (
+        min(api_range_from, effective_range_from_utc.astimezone(timezone.utc))
+        if effective_range_from_utc is not None
+        else api_range_from
+    )
     range_to = parse_utc_datetime(payload["range"]["to"])
 
     effective_now = now_utc.astimezone(timezone.utc) if now_utc else generated_at

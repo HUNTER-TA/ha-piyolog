@@ -1,6 +1,6 @@
 get_records:
   name: Get records
-  description: Retrieve records from the latest cached PiyoLog feed snapshot without making an extra API request.
+  description: Retrieve records from the locally merged PiyoLog history (default 14 days) without making an extra API request.
   fields:
     entry_id:
       name: Config entry ID
@@ -14,20 +14,29 @@ get_records:
       required: false
       selector:
         object:
-    limit:
-      name: Limit
-      description: Maximum number of records to return (newest first, 1-500).
+    days:
+      name: Days
+      description: Optional window in days from now (1-30). Omit to return from all locally retained records.
       required: false
-      default: 50
       selector:
         number:
           min: 1
-          max: 500
+          max: 30
+          mode: box
+    limit:
+      name: Limit
+      description: Maximum number of records to return (newest first, 1-2000).
+      required: false
+      default: 100
+      selector:
+        number:
+          min: 1
+          max: 2000
           mode: box
 
 get_daily_summary:
   name: Get daily summary
-  description: Retrieve per-day totals, 7-day averages, care intervals, recent formula records, and sleep sessions from the latest cached snapshot.
+  description: Retrieve per-day totals, 7-day averages, care intervals, recent formula records, and sleep sessions from the locally merged history.
   fields:
     entry_id:
       name: Config entry ID
@@ -37,11 +46,11 @@ get_daily_summary:
         text:
     days:
       name: Days
-      description: Maximum number of local calendar days to return (newest days, 1-28).
+      description: Maximum number of local calendar days to return (newest days, 1-30).
       required: false
       default: 14
       selector:
         number:
           min: 1
-          max: 28
+          max: 30
           mode: box

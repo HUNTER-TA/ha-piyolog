@@ -38,11 +38,15 @@ from .api import (
 from .const import (
     CONF_FEED_URL,
     CONF_NAME,
+    CONF_RETENTION_DAYS,
     CONF_SCAN_INTERVAL,
     DEFAULT_MIN_INTERVAL_SECONDS,
     DEFAULT_NAME,
+    DEFAULT_RETENTION_DAYS,
     DOMAIN,
+    MAX_RETENTION_DAYS,
     MAX_SCAN_INTERVAL_SECONDS,
+    MIN_RETENTION_DAYS,
     default_interval_for_period,
     min_interval_for_period,
 )
@@ -238,14 +242,24 @@ class PiyoLogOptionsFlow(OptionsFlow):
                 ),
             )
         )
+        current_retention = int(
+            self.config_entry.options.get(
+                CONF_RETENTION_DAYS,
+                self.config_entry.data.get(CONF_RETENTION_DAYS, DEFAULT_RETENTION_DAYS),
+            )
+        )
 
         if user_input is not None:
             new_interval = int(user_input[CONF_SCAN_INTERVAL])
+            new_retention = int(user_input[CONF_RETENTION_DAYS])
             if new_interval < min_interval:
                 errors[CONF_SCAN_INTERVAL] = "interval_too_short"
             else:
                 return self.async_create_entry(
-                    data={CONF_SCAN_INTERVAL: new_interval}
+                    data={
+                        CONF_SCAN_INTERVAL: new_interval,
+                        CONF_RETENTION_DAYS: new_retention,
+                    }
                 )
 
         schema = vol.Schema(
@@ -260,6 +274,18 @@ class PiyoLogOptionsFlow(OptionsFlow):
                         step=10,
                         mode=NumberSelectorMode.BOX,
                         unit_of_measurement="s",
+                    )
+                ),
+                vol.Required(
+                    CONF_RETENTION_DAYS,
+                    default=current_retention,
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=MIN_RETENTION_DAYS,
+                        max=MAX_RETENTION_DAYS,
+                        step=1,
+                        mode=NumberSelectorMode.BOX,
+                        unit_of_measurement="days",
                     )
                 ),
             }

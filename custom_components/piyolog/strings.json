@@ -37,9 +37,10 @@
     "step": {
       "init": {
         "title": "PiyoLog Data Feed Options",
-        "description": "Configure the polling interval for this {period} feed (minimum {min_interval} seconds based on API cache TTL).",
+        "description": "Configure the polling interval (minimum {min_interval} seconds for {period} feed) and local rolling history retention (default 14 days; 0 disables local accumulation).",
         "data": {
-          "scan_interval": "Polling interval (seconds)"
+          "scan_interval": "Polling interval (seconds)",
+          "retention_days": "Local history retention (days)"
         }
       }
     },

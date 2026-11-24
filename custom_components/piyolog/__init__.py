@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import Any
 
@@ -17,8 +18,11 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import PiyoLogApiClient, PiyoLogInvalidUrlError, parse_feed_url
 from .const import (
     CONF_FEED_URL,
+    CONF_RETENTION_DAYS,
     CONF_SCAN_INTERVAL,
+    DEFAULT_RETENTION_DAYS,
     DOMAIN,
+    MAX_RETENTION_DAYS,
     SERVICE_DEFAULT_LIMIT,
     SERVICE_GET_DAILY_SUMMARY,
     SERVICE_GET_RECORDS,
@@ -26,6 +30,7 @@ from .const import (
     default_interval_for_period,
 )
 from .coordinator import PiyoLogDataUpdateCoordinator
+from .storage import PiyoLogHistoryStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,6 +42,9 @@ SERVICE_GET_RECORDS_SCHEMA = vol.Schema(
     {
         vol.Optional("entry_id"): cv.string,
         vol.Optional("types"): vol.All(cv.ensure_list, [cv.string]),
+        vol.Optional("days"): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=MAX_RETENTION_DAYS)
+        ),
         vol.Optional("limit", default=SERVICE_DEFAULT_LIMIT): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=SERVICE_MAX_LIMIT)
         ),
@@ -46,8 +54,8 @@ SERVICE_GET_RECORDS_SCHEMA = vol.Schema(
 SERVICE_GET_DAILY_SUMMARY_SCHEMA = vol.Schema(
     {
         vol.Optional("entry_id"): cv.string,
-        vol.Optional("days", default=14): vol.All(
-            vol.Coerce(int), vol.Range(min=1, max=28)
+        vol.Optional("days", default=DEFAULT_RETENTION_DAYS): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=MAX_RETENTION_DAYS)
         ),
     }
 )
@@ -65,9 +73,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiyoLogConfigEntry) -> b
         CONF_SCAN_INTERVAL,
         entry.data.get(CONF_SCAN_INTERVAL, default_interval_for_period(parsed.period)),
     )
+    retention_days = int(
+        entry.options.get(
+            CONF_RETENTION_DAYS,
+            entry.data.get(CONF_RETENTION_DAYS, DEFAULT_RETENTION_DAYS),
+        )
+    )
 
     session = async_get_clientsession(hass)
     api_client = PiyoLogApiClient(session)
+    history_store = PiyoLogHistoryStore(hass, entry.entry_id)
     coordinator = PiyoLogDataUpdateCoordinator(
         hass,
         config_entry=entry,
@@ -76,6 +91,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiyoLogConfigEntry) -> b
         feed_id=parsed.feed_id,
         period=parsed.period,
         base_interval_sec=int(scan_interval),
+        retention_days=retention_days,
+        history_store=history_store,
     )
 
     await coordinator.async_config_entry_first_refresh()
@@ -111,6 +128,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: PiyoLogConfigEntry) -> 
     return unload_ok
 
 
+async def async_remove_entry(hass: HomeAssistant, entry: PiyoLogConfigEntry) -> None:
+    """Clean up persisted local history when a config entry is deleted."""
+    await PiyoLogHistoryStore(hass, entry.entry_id).async_remove()
+
+
 def _resolve_target_entry(
     hass: HomeAssistant, entry_id: str | None
 ) -> PiyoLogConfigEntry:
@@ -142,6 +164,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         async def _handle_get_records(call: ServiceCall) -> ServiceResponse:
             target_entry = _resolve_target_entry(hass, call.data.get("entry_id"))
             types_filter: list[str] | None = call.data.get("types")
+            days_filter: int | None = call.data.get("days")
             limit: int = call.data.get("limit", SERVICE_DEFAULT_LIMIT)
 
             coordinator = target_entry.runtime_data
@@ -157,8 +180,16 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 }
 
             allowed_types = set(types_filter) if types_filter else None
+            cutoff_utc: datetime | None = (
+                max(datetime.now(timezone.utc), snapshot.generated_at)
+                - timedelta(days=days_filter)
+                if days_filter is not None
+                else None
+            )
             matched: list[dict[str, Any]] = []
             for rec in reversed(snapshot.records):
+                if cutoff_utc is not None and rec.dt < cutoff_utc:
+                    break
                 if allowed_types is not None and rec.record_type not in allowed_types:
                     continue
                 matched.append(rec.to_dict())
@@ -169,6 +200,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 "entry_id": target_entry.entry_id,
                 "name": target_entry.title,
                 "period": data.period,
+                "retention_days": data.retention_days,
                 "status": data.status,
                 "generated_at": snapshot.generated_at.isoformat(),
                 "range": {
@@ -211,6 +243,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 "entry_id": target_entry.entry_id,
                 "name": target_entry.title,
                 "period": data.period,
+                "retention_days": data.retention_days,
+                "history_since": (
+                    data.history_since.isoformat() if data.history_since else None
+                ),
                 "status": data.status,
                 "generated_at": snapshot.generated_at.isoformat(),
                 "range": {

@@ -24,6 +24,7 @@ from .api import (
     redact_feed_url,
 )
 from .const import (
+    DEFAULT_RETENTION_DAYS,
     DOMAIN,
     MAX_BACKOFF_SECONDS,
     STATUS_OK,
@@ -34,7 +35,8 @@ from .const import (
     STATUS_UNSUPPORTED_SCHEMA,
     min_interval_for_period,
 )
-from .parser import PiyoLogSnapshot, parse_feed_payload
+from .parser import PiyoLogSnapshot, parse_feed_payload, parse_utc_datetime
+from .storage import PiyoLogHistoryStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +52,9 @@ class PiyoLogCoordinatorData:
     last_error_code: str | None
     consecutive_errors: int
     current_interval_sec: int
+    retention_days: int = DEFAULT_RETENTION_DAYS
+    feed_record_count: int = 0
+    history_since: datetime | None = None
 
 
 def _resolve_tz(hass: HomeAssistant) -> tzinfo:
@@ -76,6 +81,8 @@ class PiyoLogDataUpdateCoordinator(DataUpdateCoordinator[PiyoLogCoordinatorData]
         feed_id: str,
         period: str,
         base_interval_sec: int,
+        retention_days: int = DEFAULT_RETENTION_DAYS,
+        history_store: PiyoLogHistoryStore | None = None,
         rng: random.Random | None = None,
     ) -> None:
         self.api_client = api_client
@@ -83,6 +90,8 @@ class PiyoLogDataUpdateCoordinator(DataUpdateCoordinator[PiyoLogCoordinatorData]
         self.feed_id = feed_id
         self.period = period
         self.redacted_url = redact_feed_url(feed_url)
+        self.retention_days = max(0, int(retention_days))
+        self._history_store = history_store
         self._rng = rng or random.Random()
 
         min_sec = min_interval_for_period(period)
@@ -90,6 +99,8 @@ class PiyoLogDataUpdateCoordinator(DataUpdateCoordinator[PiyoLogCoordinatorData]
         self._consecutive_errors = 0
         self._last_snapshot: PiyoLogSnapshot | None = None
         self._last_success: datetime | None = None
+        self._last_feed_record_count: int = 0
+        self._last_history_since: datetime | None = None
 
         super().__init__(
             hass,
@@ -139,7 +150,31 @@ class PiyoLogDataUpdateCoordinator(DataUpdateCoordinator[PiyoLogCoordinatorData]
             payload: dict[str, Any] = await self.api_client.async_fetch_feed(
                 self._feed_url
             )
-            snapshot = parse_feed_payload(payload, tz=tz, now_utc=now_utc)
+            incoming_records = payload.get("records", [])
+            feed_record_count = len(incoming_records)
+            api_range_from = parse_utc_datetime(payload["range"]["from"])
+            generated_at = parse_utc_datetime(payload["generated_at"])
+            effective_now = max(now_utc, generated_at)
+
+            effective_since: datetime | None = None
+            parse_target = payload
+            if self._history_store is not None:
+                merged_records, effective_since = (
+                    await self._history_store.async_merge_and_save(
+                        incoming_records,
+                        range_from_utc=api_range_from,
+                        effective_now_utc=effective_now,
+                        retention_days=self.retention_days,
+                    )
+                )
+                parse_target = {**payload, "records": merged_records}
+
+            snapshot = parse_feed_payload(
+                parse_target,
+                tz=tz,
+                now_utc=now_utc,
+                effective_range_from_utc=effective_since,
+            )
         except PiyoLogError as err:
             self._consecutive_errors += 1
             next_sec = self.compute_next_interval(self._consecutive_errors)
@@ -182,6 +217,9 @@ class PiyoLogDataUpdateCoordinator(DataUpdateCoordinator[PiyoLogCoordinatorData]
                     last_error_code=err.error_code,
                     consecutive_errors=self._consecutive_errors,
                     current_interval_sec=next_sec,
+                    retention_days=self.retention_days,
+                    feed_record_count=self._last_feed_record_count,
+                    history_since=self._last_history_since,
                 )
 
             raise UpdateFailed(
@@ -191,6 +229,8 @@ class PiyoLogDataUpdateCoordinator(DataUpdateCoordinator[PiyoLogCoordinatorData]
         self._consecutive_errors = 0
         self._last_snapshot = snapshot
         self._last_success = now_utc
+        self._last_feed_record_count = feed_record_count
+        self._last_history_since = effective_since or snapshot.range_from
         next_sec = self.compute_next_interval(0)
         self.update_interval = timedelta(seconds=next_sec)
 
@@ -209,4 +249,7 @@ class PiyoLogDataUpdateCoordinator(DataUpdateCoordinator[PiyoLogCoordinatorData]
             last_error_code=None,
             consecutive_errors=0,
             current_interval_sec=next_sec,
+            retention_days=self.retention_days,
+            feed_record_count=feed_record_count,
+            history_since=self._last_history_since,
         )

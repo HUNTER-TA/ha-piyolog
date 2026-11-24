@@ -28,6 +28,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import PiyoLogConfigEntry
 from .const import (
+    DAILY_HISTORY_ATTRIBUTE_DAYS,
     DOMAIN,
     STATUS_OK,
     STATUS_RATE_LIMITED,
@@ -373,6 +374,18 @@ def _build_sensor_descriptions() -> tuple[PiyoLogSensorEntityDescription, ...]:
                     ),
                     "avg_7d_total_ml": d.snapshot.avg_7d_formula_ml,
                     "recent_records": list(d.snapshot.recent_formula_records),
+                    "daily_history": [
+                        {
+                            "date": day.day,
+                            "formula_ml": day.formula_ml,
+                            "count": day.formula_count,
+                            "avg_ml": day.formula_avg_ml,
+                            "is_complete": day.is_complete,
+                        }
+                        for day in d.snapshot.daily_summaries[
+                            -DAILY_HISTORY_ATTRIBUTE_DAYS:
+                        ]
+                    ],
                     "range_covers_today": d.snapshot.range_covers_today,
                 }
                 if d.snapshot
@@ -507,6 +520,18 @@ def _build_sensor_descriptions() -> tuple[PiyoLogSensorEntityDescription, ...]:
                     "yesterday_night_sleep_min": d.snapshot.sleep.yesterday_night_sleep_min,
                     "yesterday_complete": d.snapshot.sleep.yesterday_complete,
                     "avg_7d_sleep_min": d.snapshot.avg_7d_sleep_min,
+                    "daily_history": [
+                        {
+                            "date": day.day,
+                            "sleep_min": day.sleep_min,
+                            "day_sleep_min": day.day_sleep_min,
+                            "night_sleep_min": day.night_sleep_min,
+                            "is_complete": day.is_complete,
+                        }
+                        for day in d.snapshot.daily_summaries[
+                            -DAILY_HISTORY_ATTRIBUTE_DAYS:
+                        ]
+                    ],
                     "last_sleep_duration_min": d.snapshot.sleep.last_sleep_duration_min,
                     "last_24h_sleep_min": d.snapshot.sleep.last_24h_sleep_min,
                     "is_partial_boundary": d.snapshot.sleep.is_partial_boundary,
@@ -910,6 +935,11 @@ def _build_sensor_descriptions() -> tuple[PiyoLogSensorEntityDescription, ...]:
             value_fn=lambda d: d.status,
             attrs_fn=lambda d: {
                 "period": d.period,
+                "retention_days": d.retention_days,
+                "history_since": (
+                    d.history_since.isoformat() if d.history_since else None
+                ),
+                "feed_record_count": d.feed_record_count,
                 "schema_version": d.snapshot.schema_version if d.snapshot else None,
                 "generated_at": (
                     d.snapshot.generated_at.isoformat() if d.snapshot else None
@@ -936,7 +966,13 @@ def _build_sensor_descriptions() -> tuple[PiyoLogSensorEntityDescription, ...]:
             icon="mdi:database-outline",
             value_fn=lambda d: len(d.snapshot.records) if d.snapshot else None,
             attrs_fn=lambda d: (
-                {"counts_by_type": d.snapshot.counts_by_type} if d.snapshot else {}
+                {
+                    "feed_record_count": d.feed_record_count,
+                    "stored_record_count": len(d.snapshot.records),
+                    "counts_by_type": d.snapshot.counts_by_type,
+                }
+                if d.snapshot
+                else {}
             ),
         ),
     ]

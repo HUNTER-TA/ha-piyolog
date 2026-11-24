@@ -46,6 +46,9 @@
   - `429`（レート制限）や `5xx` エラー時は **指数バックオフ＋ジッター** で自動的に待機間隔を延長し、復旧後に通常間隔へ戻ります。
   - 通信エラー時に「記録 0 件」と誤認せず、前回正常取得データを保持しつつ診断センサー `feed_status` で異常を検知できます。
   - `schema_version` チェック、未知の `type` / フィールドの安全な無視、省略された数値項目を `0` 扱いしない処理を実装しています。
+- **2 週間分（デフォルト 14 日）のローカル履歴自動蓄積**
+  - Home Assistant 標準の永続ストレージ（`.storage`）に記録を自動マージ保存するため、**無料プランの `24h` フィードのままでも過去 14 日分の履歴・日別グラフ・前日/前々日比較・7日平均** が自動で蓄積されます（再起動しても消えません）。
+  - 取得範囲内の追加・編集・削除は毎回正確に反映し、保持日数（0〜30 日）は統合オプションから変更できます。
 - **全 40 種類の記録と当日／直近 24 時間集計を網羅**
   - 授乳（母乳・ミルク・搾母乳・搾乳）、睡眠中判定・当日睡眠時間（日付またぎ対応）、排泄詳細（うんちの量・かたさ・色）、身体測定（体温・体重・身長・頭囲・胸囲・足左右サイズ）、食事、健康、生活、メモ、カスタム 1〜10 をカバー。
 - **DB を肥大化させない履歴取得アクション (`piyolog.get_records`)**
@@ -108,8 +111,8 @@
 | 7日 | `7d` | 300秒（5分） | 600秒（10分） |
 | 28日 | `28d` | 900秒（15分） | 900秒（15分） |
 
-### 更新間隔の変更（オプション）
-統合ページの **「設定」**（歯車アイコン）から、いつでも更新間隔を変更できます（API のキャッシュ保持時間未満の値は指定できないよう自動で保護されます）。
+### 更新間隔・ローカル履歴保持日数の変更（オプション）
+統合ページの **「設定」**（歯車アイコン）から、いつでも更新間隔（API キャッシュ保持時間以上）と **ローカル履歴の保持日数（デフォルト 14 日・0〜30 日）** を変更できます。`0` にするとローカル蓄積を無効化し、API の最新スナップショットのみを反映します。
 
 ### URL の差し替え（再構成）
 フィードの期限切れ・失効・取得期間の変更（例: `24h` → `7d`）で新しい URL を発行した場合は、統合ページのメニュー（`⋮`）＞ **「再構成」** から新しい URL を入力してください。既存のエンティティ ID や履歴を壊さずに切り替えられます。
@@ -139,7 +142,7 @@
 | `last_formula_amount` | 最後のミルク量 | `mL` | 最後のミルクの量（未入力時は `unknown`、0 扱いしない） |
 | `last_expressed_breast_milk` | 最後の搾母乳 | `timestamp` | 搾母乳の最新時刻（`value`, `unit`, `memo`） |
 | `last_pumping` | 最後の搾乳 | `timestamp` | 搾乳の最新時刻（`value`, `unit`, `memo`） |
-| `today_formula_total` | 今日のミルク合計量 | `mL` | 当日のミルク合計量（`count`, `avg_per_feed_ml`, `recent_records`[直近5件], `yesterday_total_ml`, `avg_7d_total_ml`, `last_24h_total_ml`, `range_covers_today`） |
+| `today_formula_total` | 今日のミルク合計量 | `mL` | 当日のミルク合計量（`count`, `avg_per_feed_ml`, `recent_records`[直近20件], `daily_history`[過去14日], `yesterday_total_ml`, `avg_7d_total_ml`, `last_24h_total_ml`） |
 | `today_breastfeeding_count` | 今日の母乳回数 | 回数 | 当日の母乳回数（`total_left_sec`, `total_right_sec`, `total_time_sec`, `total_ml`, `last_24h_*`） |
 | `today_expressed_milk_total` | 今日の搾母乳合計量 | `mL` | 当日の搾母乳合計量（`count`, `last_24h_total_ml`, `last_24h_count`） |
 | `today_pumping_total` | 今日の搾乳合計量 | `mL` | 当日の搾乳合計量（`count`, `last_24h_total_ml`, `last_24h_count`） |
@@ -151,7 +154,7 @@
 | --- | --- | --- | --- |
 | `last_sleep` | 最後に寝た時刻 | `timestamp` | 最新の `Sleep` 時刻（`memo`） |
 | `last_wakeup` | 最後に起きた時刻 | `timestamp` | 最新の `WakeUp` 時刻（`last_sleep_duration_min`, `memo`） |
-| `today_sleep_duration` | 今日の睡眠時間 | `min` | 当日 0 時以降の合計睡眠時間（`day_sleep_min`, `night_sleep_min`, `yesterday_sleep_min`, `avg_7d_sleep_min`, `sessions_count`, `last_sleep_duration_min`, `last_24h_sleep_min`） |
+| `today_sleep_duration` | 今日の睡眠時間 | `min` | 当日 0 時以降の合計睡眠時間（`day_sleep_min`, `night_sleep_min`, `daily_history`[過去14日], `yesterday_sleep_min`, `avg_7d_sleep_min`, `sessions_count`, `last_sleep_duration_min`, `last_24h_sleep_min`） |
 | `today_day_sleep_duration` | 今日の昼の睡眠時間 | `min` | 当日 6:00〜18:00 の睡眠合計（`yesterday_day_sleep_min`） |
 | `today_night_sleep_duration` | 今日の夜の睡眠時間 | `min` | 当日 0:00〜6:00・18:00〜24:00 の睡眠合計（`yesterday_night_sleep_min`） |
 | `last_diaper` | 最後のおむつ | `timestamp` | おしっこ・うんち統合の最新時刻（`type`, `today_count`, `avg_interval_min`, `next_expected_at`, `amount`/`hardness`/`color`, `memo`） |
@@ -227,7 +230,8 @@ response_variable: piyolog_result
 | --- | --- | --- |
 | `entry_id` | 任意 | 対象の ConfigEntry ID（複数フィード登録時のみ必須） |
 | `types` | 任意 | 抽出したい記録種別の配列（例: `["Formula", "Temperature"]`）。省略時は全種別 |
-| `limit` | 任意 | 返却する最大件数（新しい順、`1`〜`500`、デフォルト `50`） |
+| `days` | 任意 | 直近何日分を抽出するか（`1`〜`30`）。省略時はローカル保持中の全期間 |
+| `limit` | 任意 | 返却する最大件数（新しい順、`1`〜`2000`、デフォルト `100`） |
 
 ### レスポンス例
 
@@ -278,8 +282,8 @@ response_variable: piyolog_summary
 - `daily`: 日別サマリー配列（日付、ミルク合計・回数・1回平均、おしっこ・うんち・おむつ回数、合計/昼/夜の睡眠分、`is_complete`）
 - `averages_7d`: 過去 7 日平均（ミルク量・おむつ回数・睡眠分）
 - `intervals`: 授乳・おむつ・おしっこ・うんちの平均間隔と次回目安時刻
-- `recent_formula`: 直近 5 件のミルク時刻・量
-- `sleep_sessions`: 睡眠開始・終了・進行中フラグ・時間のセッション配列
+- `recent_formula`: 直近 20 件のミルク時刻・量
+- `sleep_sessions`: ローカル保持期間内（最大 14〜30 日分）の睡眠開始・終了・進行中フラグ・時間のセッション配列
 
 ---
 
