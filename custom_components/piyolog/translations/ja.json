@@ -1,0 +1,130 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ぴよログ データフィードを追加",
+        "description": "ぴよログアプリで発行したデータフィードURLを入力してください。更新間隔を空欄にすると、フィード期間に応じた推奨間隔が自動設定されます。",
+        "data": {
+          "feed_url": "フィードURL",
+          "name": "表示名",
+          "scan_interval": "更新間隔（秒・省略可）"
+        }
+      },
+      "reconfigure": {
+        "title": "ぴよログ データフィードを再構成",
+        "description": "既存のエンティティを維持したまま、新しいデータフィードURLへ差し替えます。",
+        "data": {
+          "feed_url": "新しいフィードURL"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "フィードURLの形式が正しくありません。https://feed.piyolog.com/v1/feed/{period}/{feed_id}/{secret} の形式で入力してください。",
+      "feed_unavailable": "フィードを利用できません（HTTP 404）。URLの誤り、期限切れ、失効、プラン停止を確認してください。作成直後は少し待ってから再試行してください。",
+      "feed_response_too_large": "データ量が大きすぎます（HTTP 413）。ぴよログアプリでより短い取得期間のフィードを作成してください。",
+      "rate_limit_exceeded": "アクセス制限に達しました（HTTP 429）。少し時間を空けて再試行してください。",
+      "unsupported_schema": "未対応のスキーマバージョンです。",
+      "cannot_connect": "ぴよログ データフィードへの接続に失敗しました。",
+      "interval_too_short": "{period} フィードの更新間隔は {min_interval} 秒以上に設定してください。",
+      "unknown": "予期しないエラーが発生しました。"
+    },
+    "abort": {
+      "already_configured": "このぴよログ フィードはすでに登録されています。",
+      "reconfigure_successful": "ぴよログ フィードURLを更新しました。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ぴよログ データフィード設定",
+        "description": "{period} フィードの更新間隔を設定します（APIキャッシュ保持時間に基づき最小 {min_interval} 秒）。",
+        "data": {
+          "scan_interval": "更新間隔（秒）"
+        }
+      }
+    },
+    "error": {
+      "interval_too_short": "{period} フィードの更新間隔は {min_interval} 秒以上に設定してください。"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "sleeping": {
+        "name": "睡眠中"
+      }
+    },
+    "sensor": {
+      "last_feeding": { "name": "最後の授乳・ミルク" },
+      "last_breastfeeding": { "name": "最後の母乳" },
+      "last_breastfeeding_side": {
+        "name": "最後の母乳の側",
+        "state": {
+          "left": "左",
+          "right": "右"
+        }
+      },
+      "last_formula": { "name": "最後のミルク" },
+      "last_formula_amount": { "name": "最後のミルク量" },
+      "last_expressed_breast_milk": { "name": "最後の搾母乳" },
+      "last_pumping": { "name": "最後の搾乳" },
+      "today_formula_total": { "name": "今日のミルク合計量" },
+      "today_breastfeeding_count": { "name": "今日の母乳回数" },
+      "today_expressed_milk_total": { "name": "今日の搾母乳合計量" },
+      "today_pumping_total": { "name": "今日の搾乳合計量" },
+      "today_feeding_count": { "name": "今日の授乳合計回数" },
+      "last_sleep": { "name": "最後に寝た時刻" },
+      "last_wakeup": { "name": "最後に起きた時刻" },
+      "today_sleep_duration": { "name": "今日の睡眠時間" },
+      "last_pee": { "name": "最後のおしっこ" },
+      "today_pee_count": { "name": "今日のおしっこ回数" },
+      "last_poop": { "name": "最後のうんち" },
+      "today_poop_count": { "name": "今日のうんち回数" },
+      "latest_temperature": { "name": "最新体温" },
+      "latest_weight": { "name": "最新体重" },
+      "latest_height": { "name": "最新身長" },
+      "latest_head_circumference": { "name": "最新頭囲" },
+      "latest_chest_circumference": { "name": "最新胸囲" },
+      "latest_foot_size_left": { "name": "最新足サイズ（左）" },
+      "latest_foot_size_right": { "name": "最新足サイズ（右）" },
+      "last_solid": { "name": "最後の離乳食" },
+      "last_meal": { "name": "最後のごはん" },
+      "last_snack": { "name": "最後のおやつ" },
+      "last_drink": { "name": "最後ののみもの" },
+      "last_bath": { "name": "最後のお風呂" },
+      "last_walking": { "name": "最後のさんぽ" },
+      "last_medicine": { "name": "最後のくすり" },
+      "last_cough": { "name": "最後のせき" },
+      "last_vomiting": { "name": "最後の吐く" },
+      "last_rash": { "name": "最後の発疹" },
+      "last_injury": { "name": "最後のけが" },
+      "last_hospital": { "name": "最後の病院" },
+      "last_vaccine": { "name": "最後の予防接種" },
+      "last_milestone": { "name": "最後のできた" },
+      "last_other": { "name": "最後のその他" },
+      "last_memo": { "name": "最後のメモ" },
+      "latest_record": { "name": "最新の記録" },
+      "feed_status": {
+        "name": "フィード状態",
+        "state": {
+          "ok": "正常",
+          "rate_limited": "レート制限中",
+          "temporary_error": "一時エラー",
+          "unavailable": "利用不可",
+          "too_large": "データ量超過",
+          "unsupported_schema": "スキーマ非対応"
+        }
+      },
+      "record_count": { "name": "取得レコード数" },
+      "last_custom1": { "name": "最後のカスタム1" },
+      "last_custom2": { "name": "最後のカスタム2" },
+      "last_custom3": { "name": "最後のカスタム3" },
+      "last_custom4": { "name": "最後のカスタム4" },
+      "last_custom5": { "name": "最後のカスタム5" },
+      "last_custom6": { "name": "最後のカスタム6" },
+      "last_custom7": { "name": "最後のカスタム7" },
+      "last_custom8": { "name": "最後のカスタム8" },
+      "last_custom9": { "name": "最後のカスタム9" },
+      "last_custom10": { "name": "最後のカスタム10" }
+    }
+  }
+}

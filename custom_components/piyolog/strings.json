@@ -1,0 +1,130 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add PiyoLog Data Feed",
+        "description": "Enter the PiyoLog Data Feed URL generated in the PiyoLog app. Leave the polling interval blank to automatically use the recommended interval for your feed period.",
+        "data": {
+          "feed_url": "Feed URL",
+          "name": "Display name",
+          "scan_interval": "Polling interval (seconds, optional)"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure PiyoLog Data Feed",
+        "description": "Enter a new PiyoLog Data Feed URL to replace the existing one while keeping your entities.",
+        "data": {
+          "feed_url": "New Feed URL"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Invalid PiyoLog Data Feed URL format. Expected https://feed.piyolog.com/v1/feed/{period}/{feed_id}/{secret}.",
+      "feed_unavailable": "Feed is unavailable (HTTP 404). Check the URL and feed status in the PiyoLog app. Newly created feeds may take a moment to become active.",
+      "feed_response_too_large": "Feed response is too large (HTTP 413). Create a feed with a shorter period in the PiyoLog app.",
+      "rate_limit_exceeded": "Rate limit exceeded (HTTP 429). Please wait and try again.",
+      "unsupported_schema": "Unsupported PiyoLog Data Feed schema version.",
+      "cannot_connect": "Failed to connect to PiyoLog Data Feed.",
+      "interval_too_short": "Polling interval must be at least {min_interval} seconds for a {period} feed.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This PiyoLog feed is already configured.",
+      "reconfigure_successful": "PiyoLog feed URL has been updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "PiyoLog Data Feed Options",
+        "description": "Configure the polling interval for this {period} feed (minimum {min_interval} seconds based on API cache TTL).",
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "interval_too_short": "Polling interval must be at least {min_interval} seconds for a {period} feed."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "sleeping": {
+        "name": "Sleeping"
+      }
+    },
+    "sensor": {
+      "last_feeding": { "name": "Last feeding" },
+      "last_breastfeeding": { "name": "Last breastfeeding" },
+      "last_breastfeeding_side": {
+        "name": "Last breastfeeding side",
+        "state": {
+          "left": "Left",
+          "right": "Right"
+        }
+      },
+      "last_formula": { "name": "Last formula" },
+      "last_formula_amount": { "name": "Last formula amount" },
+      "last_expressed_breast_milk": { "name": "Last expressed breast milk" },
+      "last_pumping": { "name": "Last pumping" },
+      "today_formula_total": { "name": "Today's formula total" },
+      "today_breastfeeding_count": { "name": "Today's breastfeeding count" },
+      "today_expressed_milk_total": { "name": "Today's expressed milk total" },
+      "today_pumping_total": { "name": "Today's pumping total" },
+      "today_feeding_count": { "name": "Today's feeding count" },
+      "last_sleep": { "name": "Last sleep" },
+      "last_wakeup": { "name": "Last wake up" },
+      "today_sleep_duration": { "name": "Today's sleep duration" },
+      "last_pee": { "name": "Last pee" },
+      "today_pee_count": { "name": "Today's pee count" },
+      "last_poop": { "name": "Last poop" },
+      "today_poop_count": { "name": "Today's poop count" },
+      "latest_temperature": { "name": "Latest temperature" },
+      "latest_weight": { "name": "Latest weight" },
+      "latest_height": { "name": "Latest height" },
+      "latest_head_circumference": { "name": "Latest head circumference" },
+      "latest_chest_circumference": { "name": "Latest chest circumference" },
+      "latest_foot_size_left": { "name": "Latest foot size (left)" },
+      "latest_foot_size_right": { "name": "Latest foot size (right)" },
+      "last_solid": { "name": "Last solid food" },
+      "last_meal": { "name": "Last meal" },
+      "last_snack": { "name": "Last snack" },
+      "last_drink": { "name": "Last drink" },
+      "last_bath": { "name": "Last bath" },
+      "last_walking": { "name": "Last walk" },
+      "last_medicine": { "name": "Last medicine" },
+      "last_cough": { "name": "Last cough" },
+      "last_vomiting": { "name": "Last vomiting" },
+      "last_rash": { "name": "Last rash" },
+      "last_injury": { "name": "Last injury" },
+      "last_hospital": { "name": "Last hospital visit" },
+      "last_vaccine": { "name": "Last vaccine" },
+      "last_milestone": { "name": "Last milestone" },
+      "last_other": { "name": "Last other" },
+      "last_memo": { "name": "Last memo" },
+      "latest_record": { "name": "Latest record" },
+      "feed_status": {
+        "name": "Feed status",
+        "state": {
+          "ok": "OK",
+          "rate_limited": "Rate limited",
+          "temporary_error": "Temporary error",
+          "unavailable": "Unavailable",
+          "too_large": "Response too large",
+          "unsupported_schema": "Unsupported schema"
+        }
+      },
+      "record_count": { "name": "Record count" },
+      "last_custom1": { "name": "Last custom 1" },
+      "last_custom2": { "name": "Last custom 2" },
+      "last_custom3": { "name": "Last custom 3" },
+      "last_custom4": { "name": "Last custom 4" },
+      "last_custom5": { "name": "Last custom 5" },
+      "last_custom6": { "name": "Last custom 6" },
+      "last_custom7": { "name": "Last custom 7" },
+      "last_custom8": { "name": "Last custom 8" },
+      "last_custom9": { "name": "Last custom 9" },
+      "last_custom10": { "name": "Last custom 10" }
+    }
+  }
+}

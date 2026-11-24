@@ -1,0 +1,11 @@
+{
+  "domain": "piyolog",
+  "name": "PiyoLog (ぴよログ)",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://www.piyolog.com/app/piyolog/data_feed/ja/",
+  "iot_class": "cloud_polling",
+  "loggers": ["custom_components.piyolog"],
+  "requirements": [],
+  "version": "1.0.0"
+}

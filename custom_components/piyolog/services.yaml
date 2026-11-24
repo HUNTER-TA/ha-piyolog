@@ -1,0 +1,26 @@
+get_records:
+  name: Get records
+  description: Retrieve records from the latest cached PiyoLog feed snapshot without making an extra API request.
+  fields:
+    entry_id:
+      name: Config entry ID
+      description: Optional config entry ID (required when multiple PiyoLog feeds are configured).
+      required: false
+      selector:
+        text:
+    types:
+      name: Record types
+      description: Optional list of PiyoLog record types to filter (e.g. Formula, BreastFeeding, Poop).
+      required: false
+      selector:
+        object:
+    limit:
+      name: Limit
+      description: Maximum number of records to return (newest first, 1-500).
+      required: false
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 500
+          mode: box
