@@ -55,6 +55,7 @@
     },
     "sensor": {
       "last_feeding": { "name": "Last feeding" },
+      "next_feeding_estimate": { "name": "Next feeding estimate" },
       "last_breastfeeding": { "name": "Last breastfeeding" },
       "last_breastfeeding_side": {
         "name": "Last breastfeeding side",
@@ -75,9 +76,15 @@
       "last_sleep": { "name": "Last sleep" },
       "last_wakeup": { "name": "Last wake up" },
       "today_sleep_duration": { "name": "Today's sleep duration" },
+      "today_day_sleep_duration": { "name": "Today's daytime sleep duration" },
+      "today_night_sleep_duration": { "name": "Today's nighttime sleep duration" },
+      "last_diaper": { "name": "Last diaper" },
+      "next_diaper_estimate": { "name": "Next diaper estimate" },
       "last_pee": { "name": "Last pee" },
+      "next_pee_estimate": { "name": "Next pee estimate" },
       "today_pee_count": { "name": "Today's pee count" },
       "last_poop": { "name": "Last poop" },
+      "next_poop_estimate": { "name": "Next poop estimate" },
       "today_poop_count": { "name": "Today's poop count" },
       "latest_temperature": { "name": "Latest temperature" },
       "latest_weight": { "name": "Latest weight" },

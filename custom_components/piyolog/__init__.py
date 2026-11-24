@@ -20,6 +20,7 @@ from .const import (
     CONF_SCAN_INTERVAL,
     DOMAIN,
     SERVICE_DEFAULT_LIMIT,
+    SERVICE_GET_DAILY_SUMMARY,
     SERVICE_GET_RECORDS,
     SERVICE_MAX_LIMIT,
     default_interval_for_period,
@@ -38,6 +39,15 @@ SERVICE_GET_RECORDS_SCHEMA = vol.Schema(
         vol.Optional("types"): vol.All(cv.ensure_list, [cv.string]),
         vol.Optional("limit", default=SERVICE_DEFAULT_LIMIT): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=SERVICE_MAX_LIMIT)
+        ),
+    }
+)
+
+SERVICE_GET_DAILY_SUMMARY_SCHEMA = vol.Schema(
+    {
+        vol.Optional("entry_id"): cv.string,
+        vol.Optional("days", default=14): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=28)
         ),
     }
 )
@@ -94,84 +104,139 @@ async def async_unload_entry(hass: HomeAssistant, entry: PiyoLogConfigEntry) -> 
             for e in hass.config_entries.async_loaded_entries(DOMAIN)
             if e.entry_id != entry.entry_id
         ]
-        if not remaining and hass.services.has_service(DOMAIN, SERVICE_GET_RECORDS):
-            hass.services.async_remove(DOMAIN, SERVICE_GET_RECORDS)
+        if not remaining:
+            for service_name in (SERVICE_GET_RECORDS, SERVICE_GET_DAILY_SUMMARY):
+                if hass.services.has_service(DOMAIN, service_name):
+                    hass.services.async_remove(DOMAIN, service_name)
     return unload_ok
+
+
+def _resolve_target_entry(
+    hass: HomeAssistant, entry_id: str | None
+) -> PiyoLogConfigEntry:
+    """Resolve the target loaded PiyoLog ConfigEntry for service calls."""
+    loaded_entries: list[PiyoLogConfigEntry] = (
+        hass.config_entries.async_loaded_entries(DOMAIN)
+    )
+    if not loaded_entries:
+        raise ServiceValidationError("No loaded PiyoLog entries available")
+
+    if entry_id:
+        for e in loaded_entries:
+            if e.entry_id == entry_id:
+                return e
+        raise ServiceValidationError(f"PiyoLog entry '{entry_id}' is not loaded")
+
+    if len(loaded_entries) == 1:
+        return loaded_entries[0]
+
+    raise ServiceValidationError(
+        "Multiple PiyoLog feeds are configured; please specify entry_id"
+    )
 
 
 def _async_register_services(hass: HomeAssistant) -> None:
     """Register domain services once."""
-    if hass.services.has_service(DOMAIN, SERVICE_GET_RECORDS):
-        return
+    if not hass.services.has_service(DOMAIN, SERVICE_GET_RECORDS):
 
-    async def _handle_get_records(call: ServiceCall) -> ServiceResponse:
-        entry_id: str | None = call.data.get("entry_id")
-        types_filter: list[str] | None = call.data.get("types")
-        limit: int = call.data.get("limit", SERVICE_DEFAULT_LIMIT)
+        async def _handle_get_records(call: ServiceCall) -> ServiceResponse:
+            target_entry = _resolve_target_entry(hass, call.data.get("entry_id"))
+            types_filter: list[str] | None = call.data.get("types")
+            limit: int = call.data.get("limit", SERVICE_DEFAULT_LIMIT)
 
-        loaded_entries: list[PiyoLogConfigEntry] = (
-            hass.config_entries.async_loaded_entries(DOMAIN)
-        )
-        if not loaded_entries:
-            raise ServiceValidationError("No loaded PiyoLog entries available")
+            coordinator = target_entry.runtime_data
+            data = coordinator.data
+            snapshot = data.snapshot if data else None
+            if snapshot is None:
+                return {
+                    "entry_id": target_entry.entry_id,
+                    "name": target_entry.title,
+                    "status": data.status if data else "unknown",
+                    "count": 0,
+                    "records": [],
+                }
 
-        target_entry: PiyoLogConfigEntry | None = None
-        if entry_id:
-            for e in loaded_entries:
-                if e.entry_id == entry_id:
-                    target_entry = e
+            allowed_types = set(types_filter) if types_filter else None
+            matched: list[dict[str, Any]] = []
+            for rec in reversed(snapshot.records):
+                if allowed_types is not None and rec.record_type not in allowed_types:
+                    continue
+                matched.append(rec.to_dict())
+                if len(matched) >= limit:
                     break
-            if target_entry is None:
-                raise ServiceValidationError(
-                    f"PiyoLog entry '{entry_id}' is not loaded"
-                )
-        elif len(loaded_entries) == 1:
-            target_entry = loaded_entries[0]
-        else:
-            raise ServiceValidationError(
-                "Multiple PiyoLog feeds are configured; please specify entry_id"
-            )
 
-        coordinator = target_entry.runtime_data
-        data = coordinator.data
-        snapshot = data.snapshot if data else None
-        if snapshot is None:
             return {
                 "entry_id": target_entry.entry_id,
                 "name": target_entry.title,
-                "status": data.status if data else "unknown",
-                "count": 0,
-                "records": [],
+                "period": data.period,
+                "status": data.status,
+                "generated_at": snapshot.generated_at.isoformat(),
+                "range": {
+                    "from": snapshot.range_from.isoformat(),
+                    "to": snapshot.range_to.isoformat(),
+                },
+                "count": len(matched),
+                "total_in_snapshot": len(snapshot.records),
+                "records": matched,
             }
 
-        allowed_types = set(types_filter) if types_filter else None
-        matched: list[dict[str, Any]] = []
-        for rec in reversed(snapshot.records):
-            if allowed_types is not None and rec.record_type not in allowed_types:
-                continue
-            matched.append(rec.to_dict())
-            if len(matched) >= limit:
-                break
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_GET_RECORDS,
+            _handle_get_records,
+            schema=SERVICE_GET_RECORDS_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
 
-        return {
-            "entry_id": target_entry.entry_id,
-            "name": target_entry.title,
-            "period": data.period,
-            "status": data.status,
-            "generated_at": snapshot.generated_at.isoformat(),
-            "range": {
-                "from": snapshot.range_from.isoformat(),
-                "to": snapshot.range_to.isoformat(),
-            },
-            "count": len(matched),
-            "total_in_snapshot": len(snapshot.records),
-            "records": matched,
-        }
+    if not hass.services.has_service(DOMAIN, SERVICE_GET_DAILY_SUMMARY):
 
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_GET_RECORDS,
-        _handle_get_records,
-        schema=SERVICE_GET_RECORDS_SCHEMA,
-        supports_response=SupportsResponse.ONLY,
-    )
+        async def _handle_get_daily_summary(call: ServiceCall) -> ServiceResponse:
+            target_entry = _resolve_target_entry(hass, call.data.get("entry_id"))
+            days: int = call.data.get("days", 14)
+
+            coordinator = target_entry.runtime_data
+            data = coordinator.data
+            snapshot = data.snapshot if data else None
+            if snapshot is None:
+                return {
+                    "entry_id": target_entry.entry_id,
+                    "name": target_entry.title,
+                    "status": data.status if data else "unknown",
+                    "daily": [],
+                    "sleep_sessions": [],
+                }
+
+            daily_slice = snapshot.daily_summaries[-days:]
+            return {
+                "entry_id": target_entry.entry_id,
+                "name": target_entry.title,
+                "period": data.period,
+                "status": data.status,
+                "generated_at": snapshot.generated_at.isoformat(),
+                "range": {
+                    "from": snapshot.range_from.isoformat(),
+                    "to": snapshot.range_to.isoformat(),
+                },
+                "daily": [d.to_dict() for d in daily_slice],
+                "averages_7d": {
+                    "formula_ml": snapshot.avg_7d_formula_ml,
+                    "diaper_count": snapshot.avg_7d_diaper_count,
+                    "sleep_min": snapshot.avg_7d_sleep_min,
+                },
+                "intervals": {
+                    "feeding": snapshot.feeding_interval.to_dict(),
+                    "diaper": snapshot.diaper_interval.to_dict(),
+                    "pee": snapshot.pee_interval.to_dict(),
+                    "poop": snapshot.poop_interval.to_dict(),
+                },
+                "recent_formula": list(snapshot.recent_formula_records),
+                "sleep_sessions": [s.to_dict() for s in snapshot.sleep.sessions],
+            }
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_GET_DAILY_SUMMARY,
+            _handle_get_daily_summary,
+            schema=SERVICE_GET_DAILY_SUMMARY_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )

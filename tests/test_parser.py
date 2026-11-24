@@ -291,3 +291,114 @@ def test_all_40_known_record_types_and_unknown_type_and_recent_limit() -> None:
     assert snap.today_breastfeeding_ml == 60.0
     assert snap.today_feeding_count == 3
     assert snap.today_total_milk_ml == 260.0
+
+
+def test_intervals_clustering_and_next_estimates() -> None:
+    """Verify interval averages, session clustering (mixed feeding / pee+poop), and estimates."""
+    payload = {
+        "schema_version": 1,
+        "generated_at": "2026-09-09T12:00:00.000Z",
+        "range": {
+            "from": "2026-09-08T12:00:00.000Z",
+            "to": "2026-09-09T12:00:00.000Z",
+        },
+        "records": [
+            # Feeding session 1: 00:00 breast + 00:10 formula (clustered as 1 session starting 00:00)
+            {"event_id": "bf1", "datetime": "2026-09-09T00:00:00.000Z", "type": "BreastFeeding"},
+            {"event_id": "fm1", "datetime": "2026-09-09T00:10:00.000Z", "type": "Formula", "value": {"value": 80, "unit": "ml"}},
+            # Feeding session 2: 03:00 (+180 min)
+            {"event_id": "fm2", "datetime": "2026-09-09T03:00:00.000Z", "type": "Formula", "value": {"value": 100, "unit": "ml"}},
+            # Feeding session 3: 06:00 (+180 min) -> avg = 180 min, next = 09:00
+            {"event_id": "fm3", "datetime": "2026-09-09T06:00:00.000Z", "type": "Formula", "value": {"value": 120, "unit": "ml"}},
+            # Diaper session 1: 01:00 pee + 01:02 poop (clustered as 1 diaper change)
+            {"event_id": "p1", "datetime": "2026-09-09T01:00:00.000Z", "type": "Pee"},
+            {"event_id": "po1", "datetime": "2026-09-09T01:02:00.000Z", "type": "Poop"},
+            # Diaper session 2: 03:00 pee (+120 min)
+            {"event_id": "p2", "datetime": "2026-09-09T03:00:00.000Z", "type": "Pee"},
+            # Diaper session 3: 05:00 poop (+120 min) -> diaper avg = 120 min, next = 07:00
+            {"event_id": "po2", "datetime": "2026-09-09T05:00:00.000Z", "type": "Poop"},
+        ],
+    }
+
+    snap = parse_feed_payload(
+        payload,
+        tz=timezone.utc,
+        now_utc=datetime(2026, 9, 9, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert snap.feeding_interval.sample_count == 2
+    assert snap.feeding_interval.avg_interval_min == 180.0
+    assert snap.feeding_interval.next_expected_at == datetime(2026, 9, 9, 9, 0, tzinfo=timezone.utc)
+
+    assert snap.latest_diaper is not None
+    assert snap.latest_diaper.event_id == "po2"
+    assert snap.today_diaper_count == 3
+    assert snap.diaper_interval.sample_count == 2
+    assert snap.diaper_interval.avg_interval_min == 120.0
+    assert snap.diaper_interval.next_expected_at == datetime(2026, 9, 9, 7, 0, tzinfo=timezone.utc)
+
+    assert snap.pee_interval.avg_interval_min == 120.0
+    assert snap.poop_interval.avg_interval_min == 238.0  # 01:02 -> 05:00
+
+    assert len(snap.recent_formula_records) == 3
+    assert [r["value_ml"] for r in snap.recent_formula_records] == [120.0, 100.0, 80.0]
+
+
+def test_day_night_sleep_split_and_multi_day_summaries() -> None:
+    """Verify day (06-18 JST) vs night sleep split, yesterday totals, and 7-day averages."""
+    # Now: JST 2026-09-10 21:00 = UTC 2026-09-10 12:00
+    # Feed covers 3d: from JST 2026-09-07 21:00 (UTC 2026-09-07 12:00)
+    # Complete past days: 2026-09-08 and 2026-09-09
+    payload = {
+        "schema_version": 1,
+        "generated_at": "2026-09-10T12:00:00.000Z",
+        "range": {
+            "from": "2026-09-07T12:00:00.000Z",
+            "to": "2026-09-10T12:00:00.000Z",
+        },
+        "records": [
+            # 2026-09-08: Formula 500 ml (2 feeds)
+            {"event_id": "d1-f1", "datetime": "2026-09-08T01:00:00.000Z", "type": "Formula", "value": {"value": 250, "unit": "ml"}},
+            {"event_id": "d1-f2", "datetime": "2026-09-08T05:00:00.000Z", "type": "Formula", "value": {"value": 250, "unit": "ml"}},
+            # 2026-09-09 (yesterday): Formula 700 ml + sleep 09:00-11:00 JST (day 120m) & 21:00-02:00 JST next day (night 180m on 09, 120m on 10)
+            {"event_id": "d2-f1", "datetime": "2026-09-09T01:00:00.000Z", "type": "Formula", "value": {"value": 700, "unit": "ml"}},
+            {"event_id": "d2-s1", "datetime": "2026-09-09T00:00:00.000Z", "type": "Sleep"},   # JST 09:00
+            {"event_id": "d2-w1", "datetime": "2026-09-09T02:00:00.000Z", "type": "WakeUp"},  # JST 11:00
+            {"event_id": "d2-s2", "datetime": "2026-09-09T12:00:00.000Z", "type": "Sleep"},   # JST 21:00
+            {"event_id": "d3-w1", "datetime": "2026-09-09T17:00:00.000Z", "type": "WakeUp"},  # JST 02:00 on 09-10
+            # 2026-09-10 (today): nap 13:00-14:30 JST (day 90m) + ongoing sleep from 20:00 JST (night 60m until 21:00)
+            {"event_id": "d3-s2", "datetime": "2026-09-10T04:00:00.000Z", "type": "Sleep"},   # JST 13:00
+            {"event_id": "d3-w2", "datetime": "2026-09-10T05:30:00.000Z", "type": "WakeUp"},  # JST 14:30
+            {"event_id": "d3-s3", "datetime": "2026-09-10T11:00:00.000Z", "type": "Sleep"},   # JST 20:00 (ongoing)
+        ],
+    }
+
+    snap = parse_feed_payload(
+        payload,
+        tz=JST,
+        now_utc=datetime(2026, 9, 10, 12, 0, tzinfo=timezone.utc),
+    )
+
+    # Today (2026-09-10 JST): day = 90m, night = 120m (00:00-02:00) + 60m (20:00-21:00) = 180m
+    assert snap.sleep.today_day_sleep_min == 90.0
+    assert snap.sleep.today_night_sleep_min == 180.0
+    assert snap.sleep.today_sleep_min == 270.0
+
+    # Yesterday (2026-09-09 JST): day = 120m, night = 180m (21:00-24:00), total = 300m
+    assert snap.sleep.yesterday_complete is True
+    assert snap.sleep.yesterday_day_sleep_min == 120.0
+    assert snap.sleep.yesterday_night_sleep_min == 180.0
+    assert snap.sleep.yesterday_sleep_min == 300.0
+
+    assert len(snap.sleep.sessions) == 4
+    assert snap.sleep.sessions[-1].ongoing is True
+    assert snap.sleep.sessions[-1].duration_min == 60.0
+
+    # Complete past days: 09-08 (500 ml, 0 sleep) and 09-09 (700 ml, 300m sleep) -> avg formula = 600 ml, avg sleep = 150m
+    assert snap.avg_7d_formula_ml == 600.0
+    assert snap.avg_7d_sleep_min == 150.0
+    assert snap.yesterday_summary is not None
+    assert snap.yesterday_summary.formula_ml == 700.0
+    assert snap.day_before_yesterday_summary is not None
+    assert snap.day_before_yesterday_summary.formula_ml == 500.0
+    assert snap.day_before_yesterday_summary.formula_avg_ml == 250.0

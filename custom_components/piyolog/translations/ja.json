@@ -55,6 +55,7 @@
     },
     "sensor": {
       "last_feeding": { "name": "最後の授乳・ミルク" },
+      "next_feeding_estimate": { "name": "次の授乳目安" },
       "last_breastfeeding": { "name": "最後の母乳" },
       "last_breastfeeding_side": {
         "name": "最後の母乳の側",
@@ -75,9 +76,15 @@
       "last_sleep": { "name": "最後に寝た時刻" },
       "last_wakeup": { "name": "最後に起きた時刻" },
       "today_sleep_duration": { "name": "今日の睡眠時間" },
+      "today_day_sleep_duration": { "name": "今日の昼の睡眠時間" },
+      "today_night_sleep_duration": { "name": "今日の夜の睡眠時間" },
+      "last_diaper": { "name": "最後のおむつ" },
+      "next_diaper_estimate": { "name": "次のおむつ目安" },
       "last_pee": { "name": "最後のおしっこ" },
+      "next_pee_estimate": { "name": "次のおしっこ目安" },
       "today_pee_count": { "name": "今日のおしっこ回数" },
       "last_poop": { "name": "最後のうんち" },
+      "next_poop_estimate": { "name": "次のうんち目安" },
       "today_poop_count": { "name": "今日のうんち回数" },
       "latest_temperature": { "name": "最新体温" },
       "latest_weight": { "name": "最新体重" },

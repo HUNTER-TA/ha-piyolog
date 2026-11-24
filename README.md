@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="custom_components/piyolog/brand/icon.png" alt="ha-piyolog icon" width="128">
+  <img src="https://raw.githubusercontent.com/HUNTER-TA/ha-piyolog/main/custom_components/piyolog/brand/icon.png" alt="ha-piyolog icon" width="128">
 </p>
 
 # ha-piyolog — ぴよログ (PiyoLog) for Home Assistant
@@ -131,14 +131,15 @@
 
 | キー | 日本語名 | 単位 / 型 | 内容・主な属性 |
 | --- | --- | --- | --- |
-| `last_feeding` | 最後の授乳・ミルク | `timestamp` | 母乳・ミルク・搾母乳の最新時刻（`type`, `value_ml`, `last_side`, `left_time_sec`, `right_time_sec`, `total_time_sec`, `memo`） |
+| `last_feeding` | 最後の授乳・ミルク | `timestamp` | 母乳・ミルク・搾母乳の最新時刻（`type`, `value_ml`, `last_side`, `left_time_sec`, `right_time_sec`, `total_time_sec`, `avg_interval_min`, `next_expected_at`, `memo`） |
+| `next_feeding_estimate` | 次の授乳目安 | `timestamp` | 平均授乳間隔から算出した次回目安時刻（`avg_interval_min`, `interval_sample_count`, `last_at`） |
 | `last_breastfeeding` | 最後の母乳 | `timestamp` | 母乳の最新時刻（`last_side`, `left_time_sec`, `right_time_sec`, `total_time_sec`, `value_ml`, `memo`） |
 | `last_breastfeeding_side` | 最後の母乳の側 | `左` / `右` | 最後に授乳した側（次にどちらからあげるかの目安に便利） |
 | `last_formula` | 最後のミルク | `timestamp` | ミルクの最新時刻（`value`, `unit`, `memo`） |
 | `last_formula_amount` | 最後のミルク量 | `mL` | 最後のミルクの量（未入力時は `unknown`、0 扱いしない） |
 | `last_expressed_breast_milk` | 最後の搾母乳 | `timestamp` | 搾母乳の最新時刻（`value`, `unit`, `memo`） |
 | `last_pumping` | 最後の搾乳 | `timestamp` | 搾乳の最新時刻（`value`, `unit`, `memo`） |
-| `today_formula_total` | 今日のミルク合計量 | `mL` | 当日のミルク合計量（`count`, `last_24h_total_ml`, `last_24h_count`, `range_covers_today`） |
+| `today_formula_total` | 今日のミルク合計量 | `mL` | 当日のミルク合計量（`count`, `avg_per_feed_ml`, `recent_records`[直近5件], `yesterday_total_ml`, `avg_7d_total_ml`, `last_24h_total_ml`, `range_covers_today`） |
 | `today_breastfeeding_count` | 今日の母乳回数 | 回数 | 当日の母乳回数（`total_left_sec`, `total_right_sec`, `total_time_sec`, `total_ml`, `last_24h_*`） |
 | `today_expressed_milk_total` | 今日の搾母乳合計量 | `mL` | 当日の搾母乳合計量（`count`, `last_24h_total_ml`, `last_24h_count`） |
 | `today_pumping_total` | 今日の搾乳合計量 | `mL` | 当日の搾乳合計量（`count`, `last_24h_total_ml`, `last_24h_count`） |
@@ -150,11 +151,17 @@
 | --- | --- | --- | --- |
 | `last_sleep` | 最後に寝た時刻 | `timestamp` | 最新の `Sleep` 時刻（`memo`） |
 | `last_wakeup` | 最後に起きた時刻 | `timestamp` | 最新の `WakeUp` 時刻（`last_sleep_duration_min`, `memo`） |
-| `today_sleep_duration` | 今日の睡眠時間 | `min` | 当日 0 時以降の合計睡眠時間（進行中の睡眠も含む。`sessions_count`, `last_sleep_duration_min`, `last_24h_sleep_min`, `is_partial_boundary`） |
-| `last_pee` | 最後のおしっこ | `timestamp` | 最新の `Pee` 時刻（`memo`） |
-| `today_pee_count` | 今日のおしっこ回数 | 回数 | 当日のおしっこ回数（`last_24h_count`） |
-| `last_poop` | 最後のうんち | `timestamp` | 最新の `Poop` 時刻（`amount`, `hardness`, `color`, `memo`） |
-| `today_poop_count` | 今日のうんち回数 | 回数 | 当日のうんち回数（`last_24h_count`） |
+| `today_sleep_duration` | 今日の睡眠時間 | `min` | 当日 0 時以降の合計睡眠時間（`day_sleep_min`, `night_sleep_min`, `yesterday_sleep_min`, `avg_7d_sleep_min`, `sessions_count`, `last_sleep_duration_min`, `last_24h_sleep_min`） |
+| `today_day_sleep_duration` | 今日の昼の睡眠時間 | `min` | 当日 6:00〜18:00 の睡眠合計（`yesterday_day_sleep_min`） |
+| `today_night_sleep_duration` | 今日の夜の睡眠時間 | `min` | 当日 0:00〜6:00・18:00〜24:00 の睡眠合計（`yesterday_night_sleep_min`） |
+| `last_diaper` | 最後のおむつ | `timestamp` | おしっこ・うんち統合の最新時刻（`type`, `today_count`, `avg_interval_min`, `next_expected_at`, `amount`/`hardness`/`color`, `memo`） |
+| `next_diaper_estimate` | 次のおむつ目安 | `timestamp` | 平均おむつ間隔から算出した次回目安時刻（`avg_interval_min`, `interval_sample_count`） |
+| `last_pee` | 最後のおしっこ | `timestamp` | 最新の `Pee` 時刻（`avg_interval_min`, `next_expected_at`, `memo`） |
+| `next_pee_estimate` | 次のおしっこ目安 | `timestamp` | 平均おしっこ間隔から算出した次回目安時刻 |
+| `today_pee_count` | 今日のおしっこ回数 | 回数 | 当日のおしっこ回数（`yesterday_count`, `day_before_yesterday_count`, `last_24h_count`） |
+| `last_poop` | 最後のうんち | `timestamp` | 最新の `Poop` 時刻（`amount`, `hardness`, `color`, `avg_interval_min`, `next_expected_at`, `memo`） |
+| `next_poop_estimate` | 次のうんち目安 | `timestamp` | 平均うんち間隔から算出した次回目安時刻 |
+| `today_poop_count` | 今日のうんち回数 | 回数 | 当日のうんち回数（`yesterday_count`, `day_before_yesterday_count`, `last_24h_count`） |
 
 ### 身体測定系センサー
 
@@ -195,13 +202,13 @@
 
 ---
 
-## サービスアクション (`piyolog.get_records`)
+## サービスアクション (`piyolog.get_records` / `piyolog.get_daily_summary`)
 
-Home Assistant のセンサー属性には DB 保存上限（16KB）があるため、全記録の生 JSON は DB へ保存せず、定期取得した最新スナップショットを **メモリ上に保持** しています。
+Home Assistant のセンサー属性には DB 保存上限（16KB）があるため、全記録や日別詳細データは DB へ保存せず、定期取得した最新スナップショットを **メモリ上に保持** しています。
 
-オートメーションやテンプレートから「特定種別の過去記録をまとめて取得したい」場合は、`piyolog.get_records` アクションを呼び出すことで、**追加の API 通信を行わずに** 条件一致する記録一覧をレスポンスとして受け取れます。
+オートメーションやカスタムダッシュボードから「特定種別の過去記録をまとめて取得したい」「日別グラフや 24 時間睡眠タイムラインを描画したい」場合は、以下のアクションを呼び出すことで **追加の API 通信を行わずに** レスポンスとして受け取れます。
 
-### 呼び出し例
+### 1. `piyolog.get_records`（条件指定での記録一覧取得）
 
 ```yaml
 action: piyolog.get_records
@@ -255,6 +262,24 @@ response_variable: piyolog_result
   ]
 }
 ```
+
+### 2. `piyolog.get_daily_summary`（日別集計・平均間隔・睡眠セッション取得）
+
+ダッシュボードの棒グラフ・累積グラフ・24時間睡眠タイムライン等に必要な集計データをまとめて返却します。
+
+```yaml
+action: piyolog.get_daily_summary
+data:
+  days: 14
+response_variable: piyolog_summary
+```
+
+返却内容:
+- `daily`: 日別サマリー配列（日付、ミルク合計・回数・1回平均、おしっこ・うんち・おむつ回数、合計/昼/夜の睡眠分、`is_complete`）
+- `averages_7d`: 過去 7 日平均（ミルク量・おむつ回数・睡眠分）
+- `intervals`: 授乳・おむつ・おしっこ・うんちの平均間隔と次回目安時刻
+- `recent_formula`: 直近 5 件のミルク時刻・量
+- `sleep_sessions`: 睡眠開始・終了・進行中フラグ・時間のセッション配列
 
 ---
 

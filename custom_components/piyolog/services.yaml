@@ -24,3 +24,24 @@ get_records:
           min: 1
           max: 500
           mode: box
+
+get_daily_summary:
+  name: Get daily summary
+  description: Retrieve per-day totals, 7-day averages, care intervals, recent formula records, and sleep sessions from the latest cached snapshot.
+  fields:
+    entry_id:
+      name: Config entry ID
+      description: Optional config entry ID (required when multiple PiyoLog feeds are configured).
+      required: false
+      selector:
+        text:
+    days:
+      name: Days
+      description: Maximum number of local calendar days to return (newest days, 1-28).
+      required: false
+      default: 14
+      selector:
+        number:
+          min: 1
+          max: 28
+          mode: box

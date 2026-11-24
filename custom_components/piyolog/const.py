@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "piyolog"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 CONF_FEED_URL = "feed_url"
 CONF_NAME = "name"
@@ -37,9 +37,20 @@ MAX_BACKOFF_SECONDS = 3600
 REQUEST_TIMEOUT_SECONDS = 20
 
 RECENT_RECORDS_LIMIT = 20
+RECENT_FORMULA_LIMIT = 5
 SERVICE_GET_RECORDS = "get_records"
+SERVICE_GET_DAILY_SUMMARY = "get_daily_summary"
 SERVICE_DEFAULT_LIMIT = 50
 SERVICE_MAX_LIMIT = 500
+
+# Daytime window in local time (06:00-18:00 = day, 18:00-06:00 = night)
+DAYTIME_START_HOUR = 6
+DAYTIME_END_HOUR = 18
+
+# Clustering thresholds (minutes) to merge simultaneous logs into a single session
+# when computing average intervals (e.g., mixed breast+formula or simultaneous pee+poop).
+FEEDING_CLUSTER_MINUTES = 15
+DIAPER_CLUSTER_MINUTES = 5
 
 # Coordinator feed status values
 STATUS_OK = "ok"
@@ -87,6 +98,11 @@ FEEDING_TYPES: tuple[str, ...] = (
     TYPE_BREAST_FEEDING,
     TYPE_FORMULA,
     TYPE_EXPRESSED_BREAST_MILK,
+)
+
+DIAPER_TYPES: tuple[str, ...] = (
+    TYPE_PEE,
+    TYPE_POOP,
 )
 
 MEASUREMENT_TYPES: tuple[str, ...] = (

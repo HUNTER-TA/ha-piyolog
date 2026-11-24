@@ -66,7 +66,7 @@ from .const import (
     TYPE_WEIGHT,
 )
 from .coordinator import PiyoLogCoordinatorData, PiyoLogDataUpdateCoordinator
-from .parser import ParsedRecord, PiyoLogSnapshot
+from .parser import IntervalStats, ParsedRecord, PiyoLogSnapshot
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -127,6 +127,20 @@ def _measurement_attrs(rec: ParsedRecord | None) -> dict[str, Any]:
     return attrs
 
 
+def _interval_attrs(stats: IntervalStats | None) -> dict[str, Any]:
+    if stats is None:
+        return {}
+    attrs: dict[str, Any] = {
+        "avg_interval_min": stats.avg_interval_min,
+        "interval_sample_count": stats.sample_count,
+    }
+    if stats.next_expected_at is not None:
+        attrs["next_expected_at"] = stats.next_expected_at.isoformat()
+    if stats.last_at is not None:
+        attrs["last_at"] = stats.last_at.isoformat()
+    return attrs
+
+
 def _feeding_attrs(data: PiyoLogCoordinatorData) -> dict[str, Any]:
     snap = _snap(data)
     if snap is None or snap.latest_feeding is None:
@@ -135,6 +149,7 @@ def _feeding_attrs(data: PiyoLogCoordinatorData) -> dict[str, Any]:
     attrs: dict[str, Any] = {
         "event_id": rec.event_id,
         "type": rec.record_type,
+        **_interval_attrs(snap.feeding_interval),
     }
     if rec.value is not None:
         attrs["value_ml"] = rec.value
@@ -146,6 +161,29 @@ def _feeding_attrs(data: PiyoLogCoordinatorData) -> dict[str, Any]:
         attrs["right_time_sec"] = rec.right_time
     if rec.total_breastfeeding_time_sec is not None:
         attrs["total_time_sec"] = rec.total_breastfeeding_time_sec
+    if rec.memo is not None:
+        attrs["memo"] = rec.memo
+    return attrs
+
+
+def _diaper_attrs(data: PiyoLogCoordinatorData) -> dict[str, Any]:
+    snap = _snap(data)
+    if snap is None or snap.latest_diaper is None:
+        return {}
+    rec = snap.latest_diaper
+    attrs: dict[str, Any] = {
+        "event_id": rec.event_id,
+        "type": rec.record_type,
+        "today_count": snap.today_diaper_count,
+        "last_24h_count": snap.last_24h_diaper_count,
+        **_interval_attrs(snap.diaper_interval),
+    }
+    if rec.poop_amount is not None:
+        attrs["amount"] = rec.poop_amount
+    if rec.poop_hardness is not None:
+        attrs["hardness"] = rec.poop_hardness
+    if rec.poop_color is not None:
+        attrs["color"] = rec.poop_color
     if rec.memo is not None:
         attrs["memo"] = rec.memo
     return attrs
@@ -181,7 +219,10 @@ def _poop_attrs(data: PiyoLogCoordinatorData) -> dict[str, Any]:
     rec = snap.latest_by_type.get(TYPE_POOP)
     if rec is None:
         return {}
-    attrs: dict[str, Any] = {"event_id": rec.event_id}
+    attrs: dict[str, Any] = {
+        "event_id": rec.event_id,
+        **_interval_attrs(snap.poop_interval),
+    }
     if rec.poop_amount is not None:
         attrs["amount"] = rec.poop_amount
     if rec.poop_hardness is not None:
@@ -283,6 +324,18 @@ def _build_sensor_descriptions() -> tuple[PiyoLogSensorEntityDescription, ...]:
             TYPE_PUMPING,
             "mdi:water-pump",
         ),
+        PiyoLogSensorEntityDescription(
+            key="next_feeding_estimate",
+            translation_key="next_feeding_estimate",
+            device_class=SensorDeviceClass.TIMESTAMP,
+            icon="mdi:clock-alert-outline",
+            value_fn=lambda d: (
+                d.snapshot.feeding_interval.next_expected_at if d.snapshot else None
+            ),
+            attrs_fn=lambda d: (
+                _interval_attrs(d.snapshot.feeding_interval) if d.snapshot else {}
+            ),
+        ),
         # --- Feeding & Milk (Today Totals) ---
         PiyoLogSensorEntityDescription(
             key="today_formula_total",
@@ -295,10 +348,31 @@ def _build_sensor_descriptions() -> tuple[PiyoLogSensorEntityDescription, ...]:
             attrs_fn=lambda d: (
                 {
                     "count": d.snapshot.today_counts_by_type.get(TYPE_FORMULA, 0),
+                    "avg_per_feed_ml": (
+                        round(
+                            d.snapshot.today_formula_ml
+                            / d.snapshot.today_counts_by_type.get(TYPE_FORMULA, 1),
+                            1,
+                        )
+                        if d.snapshot.today_counts_by_type.get(TYPE_FORMULA, 0) > 0
+                        else None
+                    ),
                     "last_24h_total_ml": d.snapshot.last_24h_formula_ml,
                     "last_24h_count": d.snapshot.last_24h_counts_by_type.get(
                         TYPE_FORMULA, 0
                     ),
+                    "yesterday_total_ml": (
+                        d.snapshot.yesterday_summary.formula_ml
+                        if d.snapshot.yesterday_summary
+                        else None
+                    ),
+                    "yesterday_count": (
+                        d.snapshot.yesterday_summary.formula_count
+                        if d.snapshot.yesterday_summary
+                        else None
+                    ),
+                    "avg_7d_total_ml": d.snapshot.avg_7d_formula_ml,
+                    "recent_records": list(d.snapshot.recent_formula_records),
                     "range_covers_today": d.snapshot.range_covers_today,
                 }
                 if d.snapshot
@@ -426,6 +500,13 @@ def _build_sensor_descriptions() -> tuple[PiyoLogSensorEntityDescription, ...]:
             attrs_fn=lambda d: (
                 {
                     "sessions_count": d.snapshot.sleep.today_sessions_count,
+                    "day_sleep_min": d.snapshot.sleep.today_day_sleep_min,
+                    "night_sleep_min": d.snapshot.sleep.today_night_sleep_min,
+                    "yesterday_sleep_min": d.snapshot.sleep.yesterday_sleep_min,
+                    "yesterday_day_sleep_min": d.snapshot.sleep.yesterday_day_sleep_min,
+                    "yesterday_night_sleep_min": d.snapshot.sleep.yesterday_night_sleep_min,
+                    "yesterday_complete": d.snapshot.sleep.yesterday_complete,
+                    "avg_7d_sleep_min": d.snapshot.avg_7d_sleep_min,
                     "last_sleep_duration_min": d.snapshot.sleep.last_sleep_duration_min,
                     "last_24h_sleep_min": d.snapshot.sleep.last_24h_sleep_min,
                     "is_partial_boundary": d.snapshot.sleep.is_partial_boundary,
@@ -435,7 +516,97 @@ def _build_sensor_descriptions() -> tuple[PiyoLogSensorEntityDescription, ...]:
                 else {}
             ),
         ),
-        _make_simple_timestamp_description("last_pee", TYPE_PEE, "mdi:water"),
+        PiyoLogSensorEntityDescription(
+            key="today_day_sleep_duration",
+            translation_key="today_day_sleep_duration",
+            device_class=SensorDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.MINUTES,
+            state_class=SensorStateClass.TOTAL,
+            icon="mdi:weather-sunny",
+            value_fn=lambda d: (
+                d.snapshot.sleep.today_day_sleep_min if d.snapshot else None
+            ),
+            attrs_fn=lambda d: (
+                {
+                    "yesterday_day_sleep_min": d.snapshot.sleep.yesterday_day_sleep_min,
+                    "yesterday_complete": d.snapshot.sleep.yesterday_complete,
+                    "range_covers_today": d.snapshot.range_covers_today,
+                }
+                if d.snapshot
+                else {}
+            ),
+        ),
+        PiyoLogSensorEntityDescription(
+            key="today_night_sleep_duration",
+            translation_key="today_night_sleep_duration",
+            device_class=SensorDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.MINUTES,
+            state_class=SensorStateClass.TOTAL,
+            icon="mdi:weather-night",
+            value_fn=lambda d: (
+                d.snapshot.sleep.today_night_sleep_min if d.snapshot else None
+            ),
+            attrs_fn=lambda d: (
+                {
+                    "yesterday_night_sleep_min": d.snapshot.sleep.yesterday_night_sleep_min,
+                    "yesterday_complete": d.snapshot.sleep.yesterday_complete,
+                    "range_covers_today": d.snapshot.range_covers_today,
+                }
+                if d.snapshot
+                else {}
+            ),
+        ),
+        PiyoLogSensorEntityDescription(
+            key="last_diaper",
+            translation_key="last_diaper",
+            device_class=SensorDeviceClass.TIMESTAMP,
+            icon="mdi:diaper-outline",
+            value_fn=lambda d: (
+                d.snapshot.latest_diaper.dt
+                if d.snapshot and d.snapshot.latest_diaper
+                else None
+            ),
+            attrs_fn=_diaper_attrs,
+        ),
+        PiyoLogSensorEntityDescription(
+            key="next_diaper_estimate",
+            translation_key="next_diaper_estimate",
+            device_class=SensorDeviceClass.TIMESTAMP,
+            icon="mdi:clock-outline",
+            value_fn=lambda d: (
+                d.snapshot.diaper_interval.next_expected_at if d.snapshot else None
+            ),
+            attrs_fn=lambda d: (
+                _interval_attrs(d.snapshot.diaper_interval) if d.snapshot else {}
+            ),
+        ),
+        PiyoLogSensorEntityDescription(
+            key="last_pee",
+            translation_key="last_pee",
+            device_class=SensorDeviceClass.TIMESTAMP,
+            icon="mdi:water",
+            value_fn=lambda d: _latest_dt(d, TYPE_PEE),
+            attrs_fn=lambda d: (
+                {
+                    **_basic_event_attrs(d, TYPE_PEE),
+                    **_interval_attrs(d.snapshot.pee_interval),
+                }
+                if d.snapshot
+                else {}
+            ),
+        ),
+        PiyoLogSensorEntityDescription(
+            key="next_pee_estimate",
+            translation_key="next_pee_estimate",
+            device_class=SensorDeviceClass.TIMESTAMP,
+            icon="mdi:clock-outline",
+            value_fn=lambda d: (
+                d.snapshot.pee_interval.next_expected_at if d.snapshot else None
+            ),
+            attrs_fn=lambda d: (
+                _interval_attrs(d.snapshot.pee_interval) if d.snapshot else {}
+            ),
+        ),
         PiyoLogSensorEntityDescription(
             key="today_pee_count",
             translation_key="today_pee_count",
@@ -450,6 +621,21 @@ def _build_sensor_descriptions() -> tuple[PiyoLogSensorEntityDescription, ...]:
                 {
                     "last_24h_count": d.snapshot.last_24h_counts_by_type.get(
                         TYPE_PEE, 0
+                    ),
+                    "yesterday_count": (
+                        d.snapshot.yesterday_summary.pee_count
+                        if d.snapshot.yesterday_summary
+                        else None
+                    ),
+                    "day_before_yesterday_count": (
+                        d.snapshot.day_before_yesterday_summary.pee_count
+                        if d.snapshot.day_before_yesterday_summary
+                        else None
+                    ),
+                    "yesterday_complete": (
+                        d.snapshot.yesterday_summary.is_complete
+                        if d.snapshot.yesterday_summary
+                        else False
                     ),
                     "range_covers_today": d.snapshot.range_covers_today,
                 }
@@ -466,6 +652,18 @@ def _build_sensor_descriptions() -> tuple[PiyoLogSensorEntityDescription, ...]:
             attrs_fn=_poop_attrs,
         ),
         PiyoLogSensorEntityDescription(
+            key="next_poop_estimate",
+            translation_key="next_poop_estimate",
+            device_class=SensorDeviceClass.TIMESTAMP,
+            icon="mdi:clock-outline",
+            value_fn=lambda d: (
+                d.snapshot.poop_interval.next_expected_at if d.snapshot else None
+            ),
+            attrs_fn=lambda d: (
+                _interval_attrs(d.snapshot.poop_interval) if d.snapshot else {}
+            ),
+        ),
+        PiyoLogSensorEntityDescription(
             key="today_poop_count",
             translation_key="today_poop_count",
             state_class=SensorStateClass.TOTAL,
@@ -479,6 +677,21 @@ def _build_sensor_descriptions() -> tuple[PiyoLogSensorEntityDescription, ...]:
                 {
                     "last_24h_count": d.snapshot.last_24h_counts_by_type.get(
                         TYPE_POOP, 0
+                    ),
+                    "yesterday_count": (
+                        d.snapshot.yesterday_summary.poop_count
+                        if d.snapshot.yesterday_summary
+                        else None
+                    ),
+                    "day_before_yesterday_count": (
+                        d.snapshot.day_before_yesterday_summary.poop_count
+                        if d.snapshot.day_before_yesterday_summary
+                        else None
+                    ),
+                    "yesterday_complete": (
+                        d.snapshot.yesterday_summary.is_complete
+                        if d.snapshot.yesterday_summary
+                        else False
                     ),
                     "range_covers_today": d.snapshot.range_covers_today,
                 }
