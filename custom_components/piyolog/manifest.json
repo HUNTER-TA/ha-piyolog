@@ -1,10 +1,11 @@
 {
   "domain": "piyolog",
   "name": "PiyoLog (ぴよログ)",
-  "codeowners": [],
+  "codeowners": ["@HUNTER-TA"],
   "config_flow": true,
-  "documentation": "https://www.piyolog.com/app/piyolog/data_feed/ja/",
+  "documentation": "https://github.com/HUNTER-TA/ha-piyolog",
   "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/HUNTER-TA/ha-piyolog/issues",
   "loggers": ["custom_components.piyolog"],
   "requirements": [],
   "version": "1.0.0"
